@@ -27,7 +27,7 @@ PAGINAS = [
 ]
 # API de búsqueda de VTEX (opcional; si no responde, se ignora)
 API = f"{BASE}/api/catalog_system/pub/products/search?ft="
-TERMINOS_API = ["luxury", "adviento", "calendario"]
+TERMINOS_API = ["luxury", "adviento", "Pin Up"]
 
 # Un producto cuenta si su nombre/enlace contiene alguna de estas palabras.
 # El calendario se llamará "Luxury", así que es la principal.
