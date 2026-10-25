@@ -27,13 +27,13 @@ PAGINAS = [
 ]
 # API de búsqueda de VTEX (opcional; si no responde, se ignora)
 API = f"{BASE}/api/catalog_system/pub/products/search?ft="
-TERMINOS_API = ["luxury", "adviento", "calendario", "Pin up"]
+TERMINOS_API = ["luxury", "adviento", "calendario"]
 
 # Un producto cuenta si su nombre/enlace contiene alguna de estas palabras.
 # El calendario se llamará "Luxury", así que es la principal.
 # Si recibes demasiados avisos de otros productos, deja solo la lista
 # de abajo con las palabras más específicas (por ejemplo "calendario luxury").
-PALABRAS = ["luxury", "adviento", "calendario", "pin up"]
+PALABRAS = ["luxury", "adviento", "calendario"]
 
 def coincide(texto: str) -> bool:
     t = texto.lower()
