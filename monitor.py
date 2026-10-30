@@ -1,4 +1,4 @@
-# ===== PRUEBA DE BANNERS CON TIEMPOS (después restaura monitor.py normal) =====
+# ===== PRUEBA DE BANNERS CON LINK Y TIEMPOS (después restaura monitor.py normal) =====
 """
 Revisa la tienda Trendy UNA vez por ejecución (GitHub Actions la lanza
 cada 10 minutos). Si aparece un producto de "calendario de adviento
@@ -215,14 +215,13 @@ def main() -> None:
 
     nuevos_anuncios = {u: n for u, n in anuncios.items()
                        if u not in estado["avisados"] and u not in nuevos}
-    if nuevos_anuncios:
-        lista = "\n".join(f"• {n}" for n in nuevos_anuncios.values())
+    for url, nombre in nuevos_anuncios.items():
         telegram(
-            f"🧪 PRUEBA de BANNERS: {len(nuevos_anuncios)} leídos\n{lista}\n"
+            f"🧪 PRUEBA de BANNERS (todo funciona)\n{nombre}\n{url}\n"
             f"⏱ El script arrancó a las {T_INICIO}\n"
             f"⏱ La búsqueda tardó {time.time() - T0:.1f} s")
-        estado["avisados"].extend(nuevos_anuncios)
-        print("Aviso de prueba enviado.")
+        estado["avisados"].append(url)
+        print(f"Aviso de banner enviado: {nombre} -> {url}")
 
     if not nuevos and not nuevos_anuncios:
         print("Sin novedades.")
