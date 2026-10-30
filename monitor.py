@@ -1,3 +1,4 @@
+# ===== VERSIÓN DE PRUEBA: PRODUCTOS (después restaura monitor.py normal) =====
 """
 Revisa la tienda Trendy UNA vez por ejecución (GitHub Actions la lanza
 cada 10 minutos). Si aparece un producto de "calendario de adviento
@@ -10,6 +11,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, quote
 
 import requests
@@ -33,14 +35,14 @@ TERMINOS_API = ["luxury", "adviento", "calendario"]
 # El calendario se llamará "Luxury", así que es la principal.
 # Si recibes demasiados avisos de otros productos, deja solo la lista
 # de abajo con las palabras más específicas (por ejemplo "calendario luxury").
-PALABRAS = ["luxury", "adviento", "calendario"]
+PALABRAS = ["hollywood"]  # PRUEBA: producto "Sombra Hollywood"
 
 def coincide(texto: str) -> bool:
     t = texto.lower()
     return any(p in t for p in PALABRAS)
 
 # Páginas donde se buscan también banners/enlaces/imágenes (no solo productos)
-PAGINAS_BANNER = [f"{BASE}/"]
+PAGINAS_BANNER = []  # PRUEBA: banners desactivados
 # Enlaces que se ignoran en la búsqueda de banners (evita falsos avisos,
 # por ejemplo el enlace "Términos Calendario 2026" del pie de página)
 EXCLUIR = ["terminos", "términos", "politica", "política", "privacidad",
@@ -56,7 +58,13 @@ HEADERS = {
 }
 
 
+def hora_colombia() -> str:
+    """Hora actual en Colombia (UTC-5, sin horario de verano)."""
+    return datetime.now(timezone(timedelta(hours=-5))).strftime("%H:%M:%S")
+
+
 def telegram(msg: str) -> None:
+    msg = f"{msg}\n🕒 Enviado a las {hora_colombia()} (Colombia)"
     r = requests.post(
         f"https://api.telegram.org/bot{TOKEN}/sendMessage",
         data={"chat_id": CHAT_ID, "text": msg},
@@ -176,7 +184,7 @@ def main() -> None:
 
     nuevos = {u: n for u, n in hallados.items() if u not in estado["avisados"]}
     for url, nombre in nuevos.items():
-        telegram(f"🎄 ¡Posible calendario de adviento!\n{nombre}\n{url}")
+        telegram(f"🧪 PRUEBA de PRODUCTOS (todo funciona)\n{nombre}\n{url}")
         estado["avisados"].append(url)
         print(f"Aviso enviado: {nombre} -> {url}")
 
