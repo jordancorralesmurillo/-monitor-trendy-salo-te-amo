@@ -1,1 +1,29 @@
-   {"avisados": [], "errores": 0}
+{
+  "avisados": [],
+  "fallos_pagina": {
+    "https://www.maquillajetrendyshop.com/luxury?_q=luxury&map=ft": 0,
+    "https://www.maquillajetrendyshop.com/adviento?_q=adviento&map=ft": 0,
+    "https://www.maquillajetrendyshop.com/calendario?_q=calendario&map=ft": 0,
+    "https://www.maquillajetrendyshop.com/nueva-coleccion": 0,
+    "https://www.maquillajetrendyshop.com/": 0
+  },
+  "ceros": 0,
+  "banners_vistos": [
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/6a48cdd6-5d96-4bd6-b1fb-eba1a93d7ff0___7ed1ffededcb7fa6f9d60102e8600786.jpg",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/3e22f7b7-a8d5-46cf-aa75-432e10cadeeb___76576f54467d8b370a29a793676631c1.jpeg",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/07ff8863-0f64-4b46-abf2-0af801172968___c9f6a70d986ab3b07cd478d4d3201be8.jpeg",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/fa54a2a7-40b9-4517-aafa-ab99247ff5c7___18f16a730467d6c0c0a1e9bad3d44cfe.jpeg",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/4b2282b8-85c2-44ac-9d87-281d8f5f1d42___71dd002d6cd4cf64620c56ea262659fd.jpeg",
+    "https://lilipinkco.vtexassets.com/arquivos/Whatsapp.png",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/a6174667-9e53-43c0-86a9-1e5b182bef18___f4f816e3cbf7b06e351683c2f9f0fc18.jpg",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/23954486-bc3a-42d8-9673-fd2eb3b43a0c___39c2e821e828c7c316280e9d20b15206.png",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/cbad1829-1e75-478a-bf60-7ecbf0a9fdc9___c10698b516c0ab65c35c310f667e946f.png",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/5fd95ef4-943b-425c-9d17-4d65387aab98___d92969946ecd8dbf4ce14e62292b2e3b.png",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/d1c250cf-bedd-48cf-9566-f0e60061b910___bec081d71f568e2dd1b1910902d33bbe.png",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/ae8baa13-2758-4eff-a4e5-6476b0e5d978___64fcd9606e21e5aba2b893b7ab9657b8.png",
+    "https://b2ctrendy.vtexassets.com/arquivos/Logo_SIC.svg"
+  ],
+  "productos_vistos": null,
+  "ultimo_latido": "2026-10-29",
+  "errores": 0
+}
