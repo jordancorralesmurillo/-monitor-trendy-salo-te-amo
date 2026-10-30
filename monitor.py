@@ -1,4 +1,4 @@
-# ===== VERSIÓN DE PRUEBA: BANNERS (después restaura monitor.py normal) =====
+# ===== PRUEBA DE BANNERS CON TIEMPOS (después restaura monitor.py normal) =====
 """
 Revisa la tienda Trendy UNA vez por ejecución (GitHub Actions la lanza
 cada 10 minutos). Si aparece un producto de "calendario de adviento
@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, quote
 
@@ -35,7 +36,7 @@ TERMINOS_API = ["luxury", "adviento", "calendario"]
 # El calendario se llamará "Luxury", así que es la principal.
 # Si recibes demasiados avisos de otros productos, deja solo la lista
 # de abajo con las palabras más específicas (por ejemplo "calendario luxury").
-PALABRAS = ["toy story", "skincare"]  # PRUEBA: banners "Toy Story" y "skincare"
+PALABRAS = ["toy story", "skincare"]  # PRUEBA: banners Toy Story / skincare
 
 def coincide(texto: str) -> bool:
     t = texto.lower()
@@ -174,12 +175,15 @@ def anuncios_en_html(url: str) -> dict:
 
 
 def main() -> None:
+    T_INICIO = hora_colombia()
+    T0 = time.time()
     if "--test" in sys.argv:
         telegram("✅ Prueba: tu monitor de Trendy puede enviarte mensajes.")
         print("Mensaje de prueba enviado.")
         return
 
     estado = cargar_estado()
+    estado["avisados"] = []  # PRUEBA: sin memoria, avisa siempre
     hallados, fallos = {}, 0
 
     for url in PAGINAS:
@@ -211,10 +215,14 @@ def main() -> None:
 
     nuevos_anuncios = {u: n for u, n in anuncios.items()
                        if u not in estado["avisados"] and u not in nuevos}
-    for url, nombre in nuevos_anuncios.items():
-        telegram(f"🧪 PRUEBA de BANNERS (todo funciona)\n{nombre}\n{url}")
-        estado["avisados"].append(url)
-        print(f"Aviso de banner enviado: {nombre} -> {url}")
+    if nuevos_anuncios:
+        lista = "\n".join(f"• {n}" for n in nuevos_anuncios.values())
+        telegram(
+            f"🧪 PRUEBA de BANNERS: {len(nuevos_anuncios)} leídos\n{lista}\n"
+            f"⏱ El script arrancó a las {T_INICIO}\n"
+            f"⏱ La búsqueda tardó {time.time() - T0:.1f} s")
+        estado["avisados"].extend(nuevos_anuncios)
+        print("Aviso de prueba enviado.")
 
     if not nuevos and not nuevos_anuncios:
         print("Sin novedades.")
