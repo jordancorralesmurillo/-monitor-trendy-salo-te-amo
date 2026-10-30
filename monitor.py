@@ -35,7 +35,7 @@ TERMINOS_API = ["luxury", "adviento", "calendario"]
 # El calendario se llamará "Luxury", así que es la principal.
 # Si recibes demasiados avisos de otros productos, deja solo la lista
 # de abajo con las palabras más específicas (por ejemplo "calendario luxury").
-PALABRAS = ["urban", "mood"]  # PRUEBA: banner "Urban" / "Mood Pills"
+PALABRAS = ["toy story", "skincare"]  # PRUEBA: banners "Toy Story" y "skincare"
 
 def coincide(texto: str) -> bool:
     t = texto.lower()
@@ -124,10 +124,13 @@ def anuncios_en_html(url: str) -> dict:
             partes += [img.get("alt", ""), img.get("src", "")]
         todo = " ".join(partes)
         if not excluido(todo) and coincide(todo):
-            nombre = texto or a.get("title", "") or "banner/enlace"
+            alts = [i.get("alt", "") for i in a.find_all("img") if i.get("alt")]
+            nombre = texto or a.get("title", "") or (alts[0] if alts else "banner/enlace")
             hallados[urljoin(BASE, href)] = nombre[:80]
 
     for img in soup.find_all("img"):
+        if img.find_parent("a"):
+            continue  # las imágenes con enlace ya se evaluaron arriba
         alt, src = img.get("alt", ""), img.get("src", "")
         todo = alt + " " + src
         if not excluido(todo) and coincide(todo):
