@@ -1,4 +1,4 @@
-# ===== VERSIÓN DE PRUEBA: PRODUCTOS (después restaura monitor.py normal) =====
+# ===== VERSIÓN DE PRUEBA: BANNERS (después restaura monitor.py normal) =====
 """
 Revisa la tienda Trendy UNA vez por ejecución (GitHub Actions la lanza
 cada 10 minutos). Si aparece un producto de "calendario de adviento
@@ -35,14 +35,14 @@ TERMINOS_API = ["luxury", "adviento", "calendario"]
 # El calendario se llamará "Luxury", así que es la principal.
 # Si recibes demasiados avisos de otros productos, deja solo la lista
 # de abajo con las palabras más específicas (por ejemplo "calendario luxury").
-PALABRAS = ["hollywood"]  # PRUEBA: producto "Sombra Hollywood"
+PALABRAS = ["urban", "mood"]  # PRUEBA: banner "Urban" / "Mood Pills"
 
 def coincide(texto: str) -> bool:
     t = texto.lower()
     return any(p in t for p in PALABRAS)
 
 # Páginas donde se buscan también banners/enlaces/imágenes (no solo productos)
-PAGINAS_BANNER = []  # PRUEBA: banners desactivados
+PAGINAS_BANNER = [f"{BASE}/"]
 # Enlaces que se ignoran en la búsqueda de banners (evita falsos avisos,
 # por ejemplo el enlace "Términos Calendario 2026" del pie de página)
 EXCLUIR = ["terminos", "términos", "politica", "política", "privacidad",
@@ -152,6 +152,24 @@ def productos_en_api() -> dict:
     return hallados
 
 
+# --- SOLO PRUEBA: ignorar productos y enlaces de producto, para que el
+# --- aviso venga únicamente de la lectura de banners/imágenes/enlaces.
+def productos_en_html(url: str) -> dict:
+    return {}
+
+
+def productos_en_api() -> dict:
+    return {}
+
+
+_anuncios_original = anuncios_en_html
+
+
+def anuncios_en_html(url: str) -> dict:
+    return {k: v for k, v in _anuncios_original(url).items()
+            if not re.search(r"/p(\?|$)", k)}
+
+
 def main() -> None:
     if "--test" in sys.argv:
         telegram("✅ Prueba: tu monitor de Trendy puede enviarte mensajes.")
@@ -184,14 +202,14 @@ def main() -> None:
 
     nuevos = {u: n for u, n in hallados.items() if u not in estado["avisados"]}
     for url, nombre in nuevos.items():
-        telegram(f"🧪 PRUEBA de PRODUCTOS (todo funciona)\n{nombre}\n{url}")
+        telegram(f"🎄 ¡Posible calendario de adviento!\n{nombre}\n{url}")
         estado["avisados"].append(url)
         print(f"Aviso enviado: {nombre} -> {url}")
 
     nuevos_anuncios = {u: n for u, n in anuncios.items()
                        if u not in estado["avisados"] and u not in nuevos}
     for url, nombre in nuevos_anuncios.items():
-        telegram(f"🔔 Posible anuncio/banner con tu palabra clave:\n{nombre}\n{url}")
+        telegram(f"🧪 PRUEBA de BANNERS (todo funciona)\n{nombre}\n{url}")
         estado["avisados"].append(url)
         print(f"Aviso de banner enviado: {nombre} -> {url}")
 
