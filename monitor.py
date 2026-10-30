@@ -39,6 +39,13 @@ def coincide(texto: str) -> bool:
     t = texto.lower()
     return any(p in t for p in PALABRAS)
 
+# Páginas donde se buscan también banners/enlaces/imágenes (no solo productos)
+PAGINAS_BANNER = [f"{BASE}/"]
+# Enlaces que se ignoran en la búsqueda de banners (evita falsos avisos,
+# por ejemplo el enlace "Términos Calendario 2026" del pie de página)
+EXCLUIR = ["terminos", "términos", "politica", "política", "privacidad",
+           "condiciones", "servicio-al-cliente", "habeas", "pqr"]
+
 TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 ESTADO = "estado.json"
@@ -88,6 +95,38 @@ def productos_en_html(url: str) -> dict:
     return hallados
 
 
+def anuncios_en_html(url: str) -> dict:
+    """Busca CUALQUIER enlace o imagen (banner, pop-up, menú) cuyo
+    enlace, texto, título o 'alt' contenga las palabras clave.
+    Devuelve {clave: descripción}."""
+    r = requests.get(url, headers=HEADERS, timeout=25)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
+    hallados = {}
+
+    def excluido(t: str) -> bool:
+        t = t.lower()
+        return any(x in t for x in EXCLUIR)
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        texto = a.get_text(" ", strip=True)
+        partes = [href, texto, a.get("title", ""), a.get("aria-label", "")]
+        for img in a.find_all("img"):
+            partes += [img.get("alt", ""), img.get("src", "")]
+        todo = " ".join(partes)
+        if not excluido(todo) and coincide(todo):
+            nombre = texto or a.get("title", "") or "banner/enlace"
+            hallados[urljoin(BASE, href)] = nombre[:80]
+
+    for img in soup.find_all("img"):
+        alt, src = img.get("alt", ""), img.get("src", "")
+        todo = alt + " " + src
+        if not excluido(todo) and coincide(todo):
+            hallados[urljoin(BASE, src)] = (alt or "imagen")[:80]
+    return hallados
+
+
 def productos_en_api() -> dict:
     hallados = {}
     for term in TERMINOS_API:
@@ -122,6 +161,13 @@ def main() -> None:
             print(f"[!] Error en {url}: {e}")
     hallados.update(productos_en_api())
 
+    anuncios = {}
+    for url in PAGINAS_BANNER:
+        try:
+            anuncios.update(anuncios_en_html(url))
+        except Exception as e:
+            print(f"[!] Error buscando banners en {url}: {e}")
+
     # Si TODAS las páginas fallaron, cuenta un error; si no, reinicia
     estado["errores"] = estado.get("errores", 0) + 1 if fallos == len(PAGINAS) else 0
     if estado["errores"] == 6:
@@ -134,7 +180,14 @@ def main() -> None:
         estado["avisados"].append(url)
         print(f"Aviso enviado: {nombre} -> {url}")
 
-    if not nuevos:
+    nuevos_anuncios = {u: n for u, n in anuncios.items()
+                       if u not in estado["avisados"] and u not in nuevos}
+    for url, nombre in nuevos_anuncios.items():
+        telegram(f"🔔 Posible anuncio/banner con tu palabra clave:\n{nombre}\n{url}")
+        estado["avisados"].append(url)
+        print(f"Aviso de banner enviado: {nombre} -> {url}")
+
+    if not nuevos and not nuevos_anuncios:
         print("Sin novedades.")
     guardar_estado(estado)
 
