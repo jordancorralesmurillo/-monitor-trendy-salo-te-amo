@@ -54,7 +54,7 @@ EXCLUIR = ["terminos", "condiciones", "politica", "privacidad", "habeas",
            "servicio-al-cliente", "enlaces-de-interes", "pqr"]
 
 AVISAR_BANNERS_NUEVOS = True      # avisa si aparece un banner nuevo en la portada
-AVISAR_PRODUCTOS_NUEVOS = False   # avisa de CUALQUIER producto nuevo en Nueva colección
+AVISAR_PRODUCTOS_NUEVOS = True   # avisa de CUALQUIER producto nuevo en Nueva colección
 LATIDO_HORA = 8                   # mensaje diario "sigo activo" desde esta hora (Colombia); None = desactivado
 MAX_AVISOS_NOVEDAD = 5            # máximo de avisos de novedad por ejecución
 # ===========================================================
