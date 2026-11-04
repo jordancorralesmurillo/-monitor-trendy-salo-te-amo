@@ -23,7 +23,28 @@
     "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/ae8baa13-2758-4eff-a4e5-6476b0e5d978___64fcd9606e21e5aba2b893b7ab9657b8.png",
     "https://b2ctrendy.vtexassets.com/arquivos/Logo_SIC.svg"
   ],
-  "productos_vistos": null,
+  "productos_vistos": [
+    "https://www.maquillajetrendyshop.com/hair-clip-x3-marmolado-encanto-hme2843/p",
+    "https://www.maquillajetrendyshop.com/pinzas-largas-encanto-pet2841/p",
+    "https://www.maquillajetrendyshop.com/organizador-retro-rock-orr2181/p",
+    "https://www.maquillajetrendyshop.com/pin-tiro-al-blanco-toy-story-dy2334/p",
+    "https://www.maquillajetrendyshop.com/polvos-sueltos-traslucidos-trendy-bakery-flour-ref-bf23/p",
+    "https://www.maquillajetrendyshop.com/polvo-suelto-bakery-grande-ref-psb1688/p",
+    "https://www.maquillajetrendyshop.com/rubor-cat-ref-cbt1500/p",
+    "https://www.maquillajetrendyshop.com/sombra-cloud-trendy-ref-cpt1252/p",
+    "https://www.maquillajetrendyshop.com/sombra-hollywood-trendy-ref-sht1310/p",
+    "https://www.maquillajetrendyshop.com/corrector-de-ojeras-aura-ctt2229/p",
+    "https://www.maquillajetrendyshop.com/sombra-terra-trendy-ref-st23/p",
+    "https://www.maquillajetrendyshop.com/brillo-de-labios-pool-party-ref--bpp1923/p",
+    "https://www.maquillajetrendyshop.com/iluminador-liquido-corpora-urban-icu2172/p",
+    "https://www.maquillajetrendyshop.com/organizador-de-brochas-trendy-ref-om20/p",
+    "https://www.maquillajetrendyshop.com/baul-mediano-negro-ref-bmt1666/p",
+    "https://www.maquillajetrendyshop.com/cosmetiquera-viajera-rosada-ref-omt1667/p",
+    "https://www.maquillajetrendyshop.com/bolsa-papel-morada-pequena-trendy-ref-brp1746/p",
+    "https://www.maquillajetrendyshop.com/kit-brochas-basico-lila-kbl2274/p",
+    "https://www.maquillajetrendyshop.com/hair-clip-mariposa-grande-ref-hmg2327/p",
+    "https://www.maquillajetrendyshop.com/hair-clip-mariposa-media-hmm2328/p"
+  ],
   "ultimo_latido": "2026-11-03",
   "errores": 0
 }
