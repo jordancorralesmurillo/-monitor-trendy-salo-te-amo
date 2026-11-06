@@ -1,5 +1,7 @@
 {
-  "avisados": [],
+  "avisados": [
+    "https://www.maquillajetrendyshop.com/kit-brocha-trendy-kl11-marmol-luxury-x-11-und/p"
+  ],
   "fallos_pagina": {
     "https://www.maquillajetrendyshop.com/luxury?_q=luxury&map=ft": 0,
     "https://www.maquillajetrendyshop.com/adviento?_q=adviento&map=ft": 0,
@@ -21,7 +23,8 @@
     "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/5fd95ef4-943b-425c-9d17-4d65387aab98___d92969946ecd8dbf4ce14e62292b2e3b.png",
     "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/d1c250cf-bedd-48cf-9566-f0e60061b910___bec081d71f568e2dd1b1910902d33bbe.png",
     "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/ae8baa13-2758-4eff-a4e5-6476b0e5d978___64fcd9606e21e5aba2b893b7ab9657b8.png",
-    "https://b2ctrendy.vtexassets.com/arquivos/Logo_SIC.svg"
+    "https://b2ctrendy.vtexassets.com/arquivos/Logo_SIC.svg",
+    "https://b2ctrendy.vtexassets.com/assets/vtex.file-manager-graphql/images/65c9d2c4-aadd-4e47-99e6-ad6992085860___df9980d1cf986d0e1163ee7b938b5508.jpg"
   ],
   "productos_vistos": [
     "https://www.maquillajetrendyshop.com/hair-clip-x3-marmolado-encanto-hme2843/p",
