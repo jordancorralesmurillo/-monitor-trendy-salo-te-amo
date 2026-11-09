@@ -7,7 +7,9 @@ Se ejecuta UNA vez por llamada (GitHub Actions lo lanza cada ~10 min) y:
  2. Busca banners, enlaces e imágenes con esas palabras en la portada.
  3. Avisa si aparece en la portada un BANNER NUEVO (aunque no tenga las
     palabras clave), por si el calendario se anuncia con otro nombre.
- 4. Te avisa si él mismo deja de funcionar (páginas que no cargan, 0 productos
+ 4. Sigue el ESTADO del calendario: si aparece pero "No disponible", te avisa en
+    cuanto pase a disponible (y repite el aviso varias veces).
+ 5. Te avisa si él mismo deja de funcionar (páginas que no cargan, 0 productos
     leídos...) y te manda un mensaje diario de "sigo activo".
 
 Recuerda lo ya avisado en estado.json para no repetir mensajes.
@@ -30,18 +32,22 @@ from bs4 import BeautifulSoup
 # =====================  CONFIGURACIÓN  =====================
 BASE = "https://www.maquillajetrendyshop.com"
 
+# Nueva colección ordenada por fecha de lanzamiento (lo más reciente primero),
+# para que un lanzamiento nuevo quede entre los productos que se leen
+NUEVA = f"{BASE}/nueva-coleccion?order=OrderByReleaseDateDESC"
+
 # Páginas donde se buscan productos
 PAGINAS = [
     f"{BASE}/luxury?_q=luxury&map=ft",
     f"{BASE}/adviento?_q=adviento&map=ft",
     f"{BASE}/calendario?_q=calendario&map=ft",
-    f"{BASE}/nueva-coleccion",
+    NUEVA,
     f"{BASE}/",
 ]
 # Páginas donde se buscan banners / enlaces / imágenes
 PAGINAS_BANNER = [f"{BASE}/"]
 # Páginas que SIEMPRE deben mostrar productos (si salen con 0, algo falla)
-PAGINAS_CON_PRODUCTOS = [f"{BASE}/nueva-coleccion", f"{BASE}/"]
+PAGINAS_CON_PRODUCTOS = [NUEVA, f"{BASE}/"]
 
 # API de búsqueda de VTEX (extra; si no responde se ignora)
 API = f"{BASE}/api/catalog_system/pub/products/search?ft="
@@ -57,6 +63,11 @@ AVISAR_BANNERS_NUEVOS = True      # avisa si aparece un banner nuevo en la porta
 AVISAR_PRODUCTOS_NUEVOS = True   # avisa de CUALQUIER producto nuevo en Nueva colección
 LATIDO_HORA = 8                   # mensaje diario "sigo activo" desde esta hora (Colombia); None = desactivado
 MAX_AVISOS_NOVEDAD = 5            # máximo de avisos de novedad por ejecución
+REPETIR_DISPONIBLE = 6            # cuántas veces repite el aviso "¡DISPONIBLE!" (una por revisión)
+
+# Cómo saber si un producto se puede comprar (se busca en el texto de su tarjeta)
+NEGATIVOS = ["no disponible", "agotado", "sin stock", "sin existencias", "sold out"]
+POSITIVOS = ["agregar al carrito", "anadir al carrito", "comprar", "add to cart"]
 # ===========================================================
 
 TOKEN = os.getenv("TELEGRAM_TOKEN", "")
@@ -72,8 +83,12 @@ HEADERS = {
 RE_PROD = re.compile(r"/p(\?|#|$)")
 ESTADO_BASE = {
     "avisados": [], "fallos_pagina": {}, "ceros": 0,
-    "banners_vistos": None, "productos_vistos": None, "ultimo_latido": "",
+    "banners_vistos": None, "productos_vistos": None, "fuente_nueva": "",
+    "ultimo_latido": "", "disponibilidad": {}, "alertas_disp": {},
 }
+PRIORIDAD = {"desconocido": 0, "no_disponible": 1, "disponible": 2}
+ETIQUETA = {"disponible": "DISPONIBLE ✅", "no_disponible": "No disponible todavía ⏳",
+            "desconocido": "estado no determinado"}
 
 
 # ---------------------------------------------------------------- utilidades
@@ -147,8 +162,9 @@ def cargar_estado() -> dict:
             e.update(json.load(f))
     except Exception:
         pass
-    if not isinstance(e.get("fallos_pagina"), dict):
-        e["fallos_pagina"] = {}
+    for k in ("fallos_pagina", "disponibilidad", "alertas_disp"):
+        if not isinstance(e.get(k), dict):
+            e[k] = {}
     return e
 
 
@@ -157,6 +173,9 @@ def guardar_estado(e: dict) -> None:
     for k in ("banners_vistos", "productos_vistos"):
         if isinstance(e.get(k), list):
             e[k] = e[k][-1000:]
+    for k in ("disponibilidad", "alertas_disp"):
+        if len(e.get(k, {})) > 200:
+            e[k] = dict(list(e[k].items())[-200:])
     with open(ESTADO, "w", encoding="utf-8") as f:
         json.dump(e, f, ensure_ascii=False, indent=2)
 
@@ -194,8 +213,34 @@ def limpiar_nombre(t: str) -> str:
     return t[:80]
 
 
+def disponibilidad_texto(texto: str) -> str:
+    """'disponible' / 'no_disponible' / 'desconocido' según el texto de la tarjeta."""
+    t = norm(texto)
+    if any(n in t for n in NEGATIVOS):
+        return "no_disponible"
+    if any(p in t for p in POSITIVOS):
+        return "disponible"
+    return "desconocido"
+
+
+def texto_tarjeta(a) -> str:
+    """Texto de la 'tarjeta' del producto (incluye el botón Agregar/No disponible).
+    Sube por el HTML mientras la caja siga conteniendo UN solo producto."""
+    nodo = mejor = a
+    for _ in range(8):
+        padre = nodo.parent
+        if padre is None or padre.name in ("body", "html", "[document]"):
+            break
+        hrefs = {re.split(r"[?#]", x["href"])[0]
+                 for x in padre.find_all("a", href=True) if RE_PROD.search(x["href"])}
+        if len(hrefs) > 1 or len(padre.get_text(" ", strip=True)) > 400:
+            break
+        nodo = mejor = padre
+    return mejor.get_text(" ", strip=True)
+
+
 def extraer_productos(html: str) -> dict:
-    """{url_producto: (nombre_corto, texto_completo)} de TODOS los productos."""
+    """{url_producto: {nombre, full, disp, tarjeta}} de TODOS los productos."""
     soup = BeautifulSoup(html, "html.parser")
     res = {}
     for a in soup.find_all("a", href=True):
@@ -205,8 +250,47 @@ def extraer_productos(html: str) -> dict:
         texto = a.get_text(" ", strip=True)
         alts = " ".join(i.get("alt", "") for i in a.find_all("img"))
         clave = urljoin(BASE, re.split(r"[?#]", href)[0])
-        res[clave] = (limpiar_nombre(texto or alts) or href[:80], f"{href} {texto} {alts}")
+        tarjeta = texto_tarjeta(a)
+        nuevo = {
+            "nombre": limpiar_nombre(texto or alts) or "",
+            "full": f"{href} {texto} {alts}",
+            "disp": disponibilidad_texto(tarjeta),
+            "tarjeta": tarjeta[:160],
+        }
+        if clave not in res:
+            res[clave] = nuevo
+            continue
+        previo = res[clave]
+        previo["full"] += " " + nuevo["full"]
+        if not previo["nombre"]:
+            previo["nombre"] = nuevo["nombre"]
+        if PRIORIDAD[nuevo["disp"]] > PRIORIDAD[previo["disp"]]:
+            previo["disp"], previo["tarjeta"] = nuevo["disp"], nuevo["tarjeta"]
+    for clave, p in res.items():
+        p["nombre"] = p["nombre"] or clave[-80:]
     return res
+
+
+def fusionar(destino: dict, url: str, p: dict) -> None:
+    """Junta dos lecturas del mismo producto; gana la más 'disponible'."""
+    if url not in destino:
+        destino[url] = dict(p)
+    elif PRIORIDAD[p["disp"]] > PRIORIDAD[destino[url]["disp"]]:
+        destino[url]["disp"], destino[url]["tarjeta"] = p["disp"], p["tarjeta"]
+
+
+def disponibilidad_en_pagina_producto(url: str) -> str:
+    """Respaldo: lee el dato 'availability' (InStock/OutOfStock) de la página del producto."""
+    try:
+        html = descargar(url)
+    except Exception:
+        return "desconocido"
+    t = " ".join(re.findall(r'"availability"\s*:\s*"([^"]+)"', html)).lower()
+    if "instock" in t:
+        return "disponible"
+    if "outofstock" in t or "soldout" in t or "discontinued" in t:
+        return "no_disponible"
+    return "desconocido"
 
 
 def extraer_anuncios(html: str) -> dict:
@@ -254,26 +338,38 @@ def extraer_banners(html: str) -> dict:
 
 
 def productos_en_api() -> dict:
+    """{url: {nombre, disp, tarjeta}} desde la API de VTEX (extra; si falla se ignora)."""
     hallados = {}
     for term in TERMINOS_API:
         try:
-            r = requests.get(API + quote(term), headers=HEADERS, timeout=20)
+            r = requests.get(f"{API}{quote(term)}&_from=0&_to=49", headers=HEADERS, timeout=20)
             if r.status_code != 200:
                 continue
             for p in r.json():
                 nombre = p.get("productName", "")
                 link = p.get("link") or ""
-                if coincide(f"{nombre} {link}"):
-                    hallados[urljoin(BASE, link)] = nombre
+                if not coincide(f"{nombre} {link}"):
+                    continue
+                hay = False
+                for it in p.get("items") or []:
+                    for sel in it.get("sellers") or []:
+                        of = sel.get("commertialOffer") or {}
+                        if (of.get("AvailableQuantity") or 0) > 0 and of.get("IsAvailable", True):
+                            hay = True
+                clave = urljoin(BASE, re.split(r"[?#]", link)[0])
+                fusionar(hallados, clave, {
+                    "nombre": nombre, "full": f"{link} {nombre}",
+                    "disp": "disponible" if hay else "no_disponible",
+                    "tarjeta": "(según la API de la tienda)"})
         except Exception:
-            continue   # la API es un extra; si falla no pasa nada
+            continue
     return hallados
 
 
 # Compatibilidad con los scripts probar_*.py
 def productos_en_html(url: str) -> dict:
-    return {u: n for u, (n, full) in extraer_productos(descargar(url)).items()
-            if coincide(full)}
+    return {u: p["nombre"] for u, p in extraer_productos(descargar(url)).items()
+            if coincide(p["full"])}
 
 
 def anuncios_en_html(url: str) -> dict:
@@ -288,6 +384,11 @@ def main() -> None:
         return
 
     estado = cargar_estado()
+    if estado.get("fuente_nueva") != NUEVA:
+        # Cambió la página de Nueva colección (o su orden): se vuelve a memorizar
+        # en silencio para no recibir avisos falsos de productos que ya existían.
+        estado["productos_vistos"] = None
+        estado["fuente_nueva"] = NUEVA
     urls = list(dict.fromkeys(PAGINAS + PAGINAS_BANNER))
 
     # 1) Descargar todas las páginas
@@ -307,10 +408,16 @@ def main() -> None:
     productos_por_pagina = {u: extraer_productos(paginas[u]) for u in PAGINAS if u in paginas}
     hallados = {}
     for prods in productos_por_pagina.values():
-        for u, (nombre, full) in prods.items():
-            if coincide(full):
-                hallados[u] = nombre
-    hallados.update(productos_en_api())
+        for u, p in prods.items():
+            if coincide(p["full"]):
+                fusionar(hallados, u, p)
+    # La API solo se usa si la página no mostró el producto, o si su tarjeta no
+    # se pudo leer: lo que ves en la tarjeta ("No Disponible") manda sobre la API.
+    for u, p in productos_en_api().items():
+        if u not in hallados:
+            hallados[u] = dict(p)
+        elif hallados[u]["disp"] == "desconocido":
+            hallados[u]["disp"], hallados[u]["tarjeta"] = p["disp"], p["tarjeta"]
 
     # 3) Salud: las páginas con productos no deben salir vacías
     vacias = [u for u in PAGINAS_CON_PRODUCTOS if u in productos_por_pagina
@@ -320,13 +427,45 @@ def main() -> None:
         avisar_seguro(f"⚠️ Llevo {estado['ceros']} revisiones seguidas leyendo 0 productos en:\n"
                       + "\n".join(vacias) + "\n(¿la tienda cambió o bloquea las lecturas?)")
 
-    # 4) Avisos por palabra clave: productos
-    for url, nombre in hallados.items():
-        if url in estado["avisados"]:
-            continue
-        telegram(f"🎄 ¡Posible calendario de adviento!\n{nombre}\n{url}")
-        estado["avisados"].append(url)
-        print(f"Aviso de producto: {nombre} -> {url}")
+    # 4) Avisos por palabra clave: productos y su DISPONIBILIDAD
+    for url, p in hallados.items():
+        nombre = p["nombre"]
+        disp = p["disp"]
+        if disp == "desconocido":
+            disp = disponibilidad_en_pagina_producto(url)   # respaldo: página del producto
+        p["disp"] = disp
+        previo = estado["disponibilidad"].get(url)
+        if disp == "disponible":
+            if previo != "disponible":
+                estado["alertas_disp"][url] = 0              # empieza un ciclo de avisos
+            n = estado["alertas_disp"].get(url, 0)
+            if n < REPETIR_DISPONIBLE:
+                telegram(f"🚨🚨 ¡DISPONIBLE AHORA! 🚨🚨\n{nombre}\n{url}\n"
+                         f"(aviso {n + 1} de {REPETIR_DISPONIBLE})\nTarjeta: {p['tarjeta'][:100]}")
+                estado["alertas_disp"][url] = n + 1
+                print(f"Aviso DISPONIBLE: {nombre} -> {url}")
+            if url not in estado["avisados"]:
+                estado["avisados"].append(url)
+        else:
+            if url not in estado["avisados"]:
+                telegram(f"🎄 ¡Posible calendario de adviento!\n{nombre}\n"
+                         f"Estado: {ETIQUETA[disp]}\n{url}\n"
+                         "Te avisaré en cuanto esté disponible.")
+                estado["avisados"].append(url)
+                print(f"Aviso de producto: {nombre} -> {url}")
+            elif disp == "no_disponible" and previo == "disponible":
+                telegram(f"ℹ️ Volvió a 'No disponible' (se agotó o se retiró):\n{nombre}\n{url}\n"
+                         "Seguiré vigilando por si vuelve a aparecer.")
+            elif disp == "no_disponible" and previo is None:
+                telegram(f"👀 Ya estoy vigilando la disponibilidad de:\n{nombre}\n"
+                         f"Estado ahora: {ETIQUETA[disp]}\n{url}\n"
+                         "Te avisaré apenas cambie a disponible.")
+            elif disp == "desconocido" and not estado["alertas_disp"].get("?" + url):
+                telegram(f"⚠️ Veo el producto pero NO logro leer si está disponible:\n{nombre}\n{url}\n"
+                         "Revísalo tú a mano; avísame para ajustar el monitor.")
+                estado["alertas_disp"]["?" + url] = 1
+        if disp != "desconocido":
+            estado["disponibilidad"][url] = disp
 
     # 5) Avisos por palabra clave: banners/enlaces/imágenes
     anuncios = {}
@@ -364,7 +503,7 @@ def main() -> None:
                 telegram(f"🖼️ Hay {len(nuevos) - enviados} banners nuevos más en la portada: {portada}")
 
     # 7) Productos nuevos en Nueva colección (opcional)
-    nueva = f"{BASE}/nueva-coleccion"
+    nueva = NUEVA
     if AVISAR_PRODUCTOS_NUEVOS and nueva in productos_por_pagina and productos_por_pagina[nueva]:
         actuales = productos_por_pagina[nueva]
         if estado["productos_vistos"] is None:
@@ -376,7 +515,7 @@ def main() -> None:
                 estado["productos_vistos"].append(u)
                 if u in hallados or enviados >= MAX_AVISOS_NOVEDAD:
                     continue
-                telegram(f"🆕 Producto nuevo en Nueva colección:\n{actuales[u][0]}\n{u}")
+                telegram(f"🆕 Producto nuevo en Nueva colección:\n{actuales[u]['nombre']}\n{u}")
                 enviados += 1
 
     # 8) Mensaje diario "sigo activo"
@@ -386,9 +525,11 @@ def main() -> None:
         if ahora.hour >= LATIDO_HORA and estado["ultimo_latido"] != hoy:
             n_portada = len(productos_por_pagina.get(portada, {}))
             n_nueva = len(productos_por_pagina.get(nueva, {}))
+            lineas = "".join(f"\n• {p['nombre'][:45]}: {ETIQUETA[p['disp']]}" for p in hallados.values())
             if avisar_seguro(f"✅ Monitor Trendy activo ({hoy}).\n"
                              f"Leído ahora: {n_portada} productos en portada, {n_nueva} en Nueva "
-                             f"colección, {n_banners} banners.\nBuscando: {', '.join(PALABRAS)}"):
+                             f"colección, {n_banners} banners.\nBuscando: {', '.join(PALABRAS)}\n"
+                             f"Productos con tus palabras:{lineas or ' ninguno'}"):
                 estado["ultimo_latido"] = hoy
 
     guardar_estado(estado)
