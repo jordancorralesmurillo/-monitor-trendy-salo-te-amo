@@ -56,5 +56,16 @@
     "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-b/p": "no_disponible"
   },
   "alertas_disp": {},
+  "directos": {
+    "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-b/p": {
+      "http": 200
+    },
+    "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-a/p": {
+      "http": 404
+    },
+    "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland/p": {
+      "http": 404
+    }
+  },
   "errores": 0
 }
