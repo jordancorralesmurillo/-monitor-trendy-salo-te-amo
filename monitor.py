@@ -12,6 +12,8 @@ Se ejecuta UNA vez por llamada (GitHub Actions lo lanza cada ~10 min) y:
  5. Vigila los ENLACES DIRECTOS del calendario (PRODUCTOS_DIRECTOS), aunque la tienda
     los oculte de las búsquedas: avisa si responden, si dejan de responder o si
     pasan a disponible.
+    También lee el bloque principal de esa página, te manda UN informe de lo que ve
+    y te avisa si ese bloque cambia (aunque no entienda el texto nuevo).
  6. Te avisa si él mismo deja de funcionar (páginas que no cargan, 0 productos
     leídos...) y te manda un mensaje diario de "sigo activo".
 
@@ -75,6 +77,8 @@ AVISAR_BANNERS_NUEVOS = True      # avisa si aparece un banner nuevo en la porta
 AVISAR_PRODUCTOS_NUEVOS = True   # avisa de CUALQUIER producto nuevo en Nueva colección
 LATIDO_HORA = 8                   # mensaje diario "sigo activo" desde esta hora (Colombia); None = desactivado
 MAX_AVISOS_NOVEDAD = 5            # máximo de avisos de novedad por ejecución
+DIAGNOSTICO_DIRECTO = True       # envía UNA vez un informe de lo que ve en la página directa
+MAX_AVISOS_CAMBIO = 5             # máximo de avisos "la página cambió" por enlace
 REPETIR_DISPONIBLE = 6            # cuántas veces repite el aviso "¡DISPONIBLE!" (una por revisión)
 
 # Cómo saber si un producto se puede comprar (se busca en el texto de su tarjeta)
@@ -97,6 +101,7 @@ ESTADO_BASE = {
     "avisados": [], "fallos_pagina": {}, "ceros": 0,
     "banners_vistos": None, "productos_vistos": None, "fuente_nueva": "",
     "ultimo_latido": "", "disponibilidad": {}, "alertas_disp": {}, "directos": {},
+    "diag_directo": {}, "huella_directo": {},
 }
 PRIORIDAD = {"desconocido": 0, "no_disponible": 1, "disponible": 2}
 ETIQUETA = {"disponible": "DISPONIBLE ✅", "no_disponible": "No disponible todavía ⏳",
@@ -174,7 +179,7 @@ def cargar_estado() -> dict:
             e.update(json.load(f))
     except Exception:
         pass
-    for k in ("fallos_pagina", "disponibilidad", "alertas_disp", "directos"):
+    for k in ("fallos_pagina", "disponibilidad", "alertas_disp", "directos", "diag_directo", "huella_directo"):
         if not isinstance(e.get(k), dict):
             e[k] = {}
     return e
@@ -397,7 +402,7 @@ def anuncios_en_html(url: str) -> dict:
 def revisar_directo(url: str) -> dict:
     """Lee la página directa del producto y su estado por varias vías."""
     slug = url.rstrip("/").split("/")[-2]
-    info = {"http": 0, "disp": "desconocido", "nombre": slug, "fuentes": ""}
+    info = {"http": 0, "disp": "desconocido", "nombre": slug, "fuentes": "", "html": ""}
     html = ""
     for _ in range(2):
         try:
@@ -410,6 +415,7 @@ def revisar_directo(url: str) -> dict:
         except Exception:
             info["http"] = 0
         time.sleep(2)
+    info["html"] = html
     senales = []
     if html:
         m = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
@@ -436,6 +442,78 @@ def revisar_directo(url: str) -> dict:
             (d for d, _ in senales), key=lambda d: PRIORIDAD[d])
     info["fuentes"] = ", ".join(f"{f}={d}" for d, f in senales) or "sin datos legibles"
     return info
+
+
+def bloque_principal(html: str) -> str:
+    """Texto del bloque del producto: sube desde el título (h1) hasta el primer
+    contenedor que tenga un botón (donde suelen estar precio y compra)."""
+    soup = BeautifulSoup(html, "html.parser")
+    h1 = soup.find("h1")
+    if not h1:
+        return ""
+    nodo = h1
+    for _ in range(8):
+        padre = nodo.parent
+        if padre is None or padre.name in ("body", "html", "[document]"):
+            break
+        nodo = padre
+        if padre.find("button"):
+            break
+    return re.sub(r"\s+", " ", nodo.get_text(" ", strip=True))[:400]
+
+
+def diagnostico_pagina(html: str, bloque: str) -> str:
+    """Resumen de lo que contiene la página (para ajustar la lectura)."""
+    def n(patron):
+        return len(re.findall(patron, html, re.I))
+    soup = BeautifulSoup(html, "html.parser")
+    botones = []
+    for b in soup.find_all("button"):
+        x = re.sub(r"\s+", " ", b.get_text(" ", strip=True))[:40]
+        if x and x not in botones:
+            botones.append(x)
+    cant = sorted(set(re.findall(r'"AvailableQuantity"\s*:\s*(\d+)', html)))[:6]
+    n_disp = n('"availability"')
+    n_ld = n("application/ld.json")
+    return (f"Tamaño: {len(html)} caracteres\n"
+            f"JSON-LD: {n_ld} | availability: {n_disp}\n"
+            f"AvailableQuantity: {n('AvailableQuantity')} (valores {cant})\n"
+            f"'No disponible': {n('no disponible')} | 'Agotado': {n('agotado')} | "
+            f"'Agregar al carrito': {n('agregar al carrito')} | 'Comprar': {n('comprar')} | "
+            f"'Avísame': {n('av[ií]same')}\n"
+            f"Botones: {botones[:10]}\n"
+            f"Bloque principal: {bloque[:220]}")
+
+
+def completar_directo(estado: dict, url: str, info: dict, principal: bool) -> None:
+    """Lee el bloque principal de la página, manda el informe (una vez) y avisa
+    si ese bloque cambia (por ejemplo, 'No Disponible' -> 'Agregar al carrito')."""
+    html = info.get("html") or ""
+    if info["http"] != 200 or not html:
+        return
+    bloque = bloque_principal(html)
+    d_bloque = disponibilidad_texto(bloque) if bloque else "desconocido"
+    if bloque:
+        info["fuentes"] += f"{', ' if info['fuentes'] and info['fuentes'] != 'sin datos legibles' else ''}bloque={d_bloque}"
+        if info["fuentes"].startswith("sin datos legibles, "):
+            info["fuentes"] = info["fuentes"][len("sin datos legibles, "):]
+    if info["disp"] == "desconocido" and d_bloque != "desconocido":
+        info["disp"] = d_bloque                       # solo si no hay datos mejores
+    if DIAGNOSTICO_DIRECTO and principal and url not in estado["diag_directo"]:
+        telegram(f"🔬 Informe de la página del calendario (para ajustar el monitor)\n"
+                 f"{diagnostico_pagina(html, bloque)}")
+        estado["diag_directo"][url] = True
+    # Aviso ante cualquier cambio del bloque, aunque no se entienda el texto
+    if bloque:
+        h = estado["huella_directo"].get(url)
+        if h is None:
+            estado["huella_directo"][url] = {"texto": bloque, "avisos": 0}
+        elif h["texto"] != bloque:
+            if h["avisos"] < MAX_AVISOS_CAMBIO:
+                telegram(f"🔔 La página del calendario CAMBIÓ:\n{url}\n"
+                         f"Antes: {h['texto'][:150]}\nAhora: {bloque[:150]}")
+                h["avisos"] += 1
+            h["texto"] = bloque
 
 
 def avisos_directo(estado: dict, url: str, info: dict, principal: bool) -> None:
@@ -548,6 +626,7 @@ def main() -> None:
     candidatos = dict(hallados)
     for i, durl in enumerate(PRODUCTOS_DIRECTOS):
         info = revisar_directo(durl)
+        completar_directo(estado, durl, info, principal=(i == 0))
         avisos_directo(estado, durl, info, principal=(i == 0))
         if info["http"] == 200 or info["disp"] != "desconocido":
             fusionar(candidatos, durl, {"nombre": info["nombre"], "full": durl,
