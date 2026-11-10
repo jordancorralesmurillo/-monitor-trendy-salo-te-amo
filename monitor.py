@@ -462,6 +462,17 @@ def bloque_principal(html: str) -> str:
     return re.sub(r"\s+", " ", nodo.get_text(" ", strip=True))[:400]
 
 
+def botones_pagina(html: str) -> list:
+    """Textos de los <button> reales de la página (sin contar textos de scripts)."""
+    soup = BeautifulSoup(html, "html.parser")
+    res = []
+    for b in soup.find_all("button"):
+        x = re.sub(r"\s+", " ", b.get_text(" ", strip=True))[:40]
+        if x and x not in res:
+            res.append(x)
+    return res
+
+
 def diagnostico_pagina(html: str, bloque: str) -> str:
     """Resumen de lo que contiene la página (para ajustar la lectura)."""
     def n(patron):
@@ -493,6 +504,13 @@ def completar_directo(estado: dict, url: str, info: dict, principal: bool) -> No
         return
     bloque = bloque_principal(html)
     d_bloque = disponibilidad_texto(bloque) if bloque else "desconocido"
+    botones = botones_pagina(html)
+    texto_botones = " | ".join(botones)
+    d_botones = disponibilidad_texto(texto_botones) if botones else "desconocido"
+    if not bloque:
+        # Sin título (h1) no hay bloque principal: se usan título y botones reales
+        bloque = f"{info['nombre']} | botones: {texto_botones or 'ninguno'}"
+        d_bloque = d_botones
     if bloque:
         info["fuentes"] += f"{', ' if info['fuentes'] and info['fuentes'] != 'sin datos legibles' else ''}bloque={d_bloque}"
         if info["fuentes"].startswith("sin datos legibles, "):
@@ -705,3 +723,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+ 
