@@ -53,9 +53,11 @@
   "fuente_nueva": "https://www.maquillajetrendyshop.com/nueva-coleccion?order=OrderByReleaseDateDESC",
   "ultimo_latido": "2026-11-10",
   "disponibilidad": {
-    "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-b/p": "no_disponible"
+    "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-b/p": "disponible"
   },
-  "alertas_disp": {},
+  "alertas_disp": {
+    "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-b/p": 1
+  },
   "directos": {
     "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-b/p": {
       "http": 200
@@ -72,8 +74,8 @@
   },
   "huella_directo": {
     "https://www.maquillajetrendyshop.com/calendario-de-adviento-2026-wonderland-b/p": {
-      "texto": "Calendario de Adviento | botones: Descripción del producto | Especificaciones del producto | Ver más",
-      "avisos": 2
+      "texto": "¡Llegó el calendario de Adviento Trendy 2026! Edición Limitada | botones: Descripción del producto | Especificaciones del producto | Ver más",
+      "avisos": 3
     }
   },
   "errores": 0
